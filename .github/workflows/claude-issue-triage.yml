@@ -49,8 +49,10 @@ jobs:
                ui/layout) and no existing label fits, you may create at most one new, narrowly
                scoped label with `gh label create` and apply it.
 
-            4. Post a diagnostic comment on the issue (`gh issue comment ${{ github.event.issue.number }}`)
-               with this structure:
+            4. Post a diagnostic comment on the issue (`gh issue comment ${{ github.event.issue.number }}`).
+               The comment body must be written in Markdown that GitHub can render correctly
+               (headings, bold, code spans/blocks, lists, etc. using standard GitHub-Flavored
+               Markdown syntax), with this structure:
                - **Summary** — one paragraph restating the problem in your own words.
                - **Affected area** — which function(s)/file(s) are likely involved, referenced as
                  `game.js:functionName` or similar, based on code you actually read.

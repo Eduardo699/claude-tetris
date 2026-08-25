@@ -45,10 +45,21 @@ const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
 
+const pauseMenu = document.getElementById('pause-menu');
+const resumeBtn = document.getElementById('resume-btn');
+const pauseRestartBtn = document.getElementById('pause-restart-btn');
+const toggleControlsBtn = document.getElementById('toggle-controls-btn');
+const pauseControls = document.getElementById('pause-controls');
+const startLevelSelect = document.getElementById('start-level-select');
+
 const THEME_STORAGE_KEY = 'tetris-theme';
+const START_LEVEL_STORAGE_KEY = 'tetris-start-level';
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 let gridLineColor = '#22222e';
+let startLevel;
+let menuOpen = false;
+let inputLocked = false;
 
 function applyTheme(theme) {
   document.body.setAttribute('data-theme', theme);
@@ -66,6 +77,21 @@ function initTheme() {
 themeToggleBtn.addEventListener('click', () => {
   const activeTheme = document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
   applyTheme(activeTheme === 'light' ? 'dark' : 'light');
+});
+
+function applyStartLevel(lvl) {
+  startLevel = lvl;
+  startLevelSelect.value = String(lvl);
+  localStorage.setItem(START_LEVEL_STORAGE_KEY, String(lvl));
+}
+
+function initStartLevel() {
+  const saved = parseInt(localStorage.getItem(START_LEVEL_STORAGE_KEY), 10);
+  applyStartLevel(Number.isInteger(saved) && saved >= 1 && saved <= 15 ? saved : 1);
+}
+
+startLevelSelect.addEventListener('change', () => {
+  applyStartLevel(parseInt(startLevelSelect.value, 10));
 });
 
 function createBoard() {
@@ -265,17 +291,42 @@ function endGame() {
   overlay.classList.remove('hidden');
 }
 
+function isControlsVisible() {
+  return !pauseControls.classList.contains('hidden');
+}
+
+function showControlsSubview() {
+  pauseControls.classList.remove('hidden');
+  toggleControlsBtn.textContent = 'Ocultar controles';
+}
+
+function hideControlsSubview() {
+  pauseControls.classList.add('hidden');
+  toggleControlsBtn.textContent = 'Ver controles';
+}
+
+function lockInputForOneFrame() {
+  inputLocked = true;
+  requestAnimationFrame(() => { inputLocked = false; });
+}
+
 function togglePause() {
   if (gameOver) return;
-  paused = !paused;
-  if (!paused) {
+  if (menuOpen) {
+    // Resume
+    menuOpen = false;
+    paused = false;
+    pauseMenu.classList.add('hidden');
+    hideControlsSubview();
+    lockInputForOneFrame();
     lastTime = performance.now();
     loop(lastTime);
   } else {
+    // Open pause menu
+    menuOpen = true;
+    paused = true;
     cancelAnimationFrame(animId);
-    overlayTitle.textContent = 'PAUSA';
-    overlayScore.textContent = '';
-    overlay.classList.remove('hidden');
+    pauseMenu.classList.remove('hidden');
   }
 }
 
@@ -300,10 +351,10 @@ function init() {
   board = createBoard();
   score = 0;
   lines = 0;
-  level = 1;
+  level = startLevel;
   paused = false;
   gameOver = false;
-  dropInterval = 1000;
+  dropInterval = Math.max(100, 1000 - (startLevel - 1) * 90);
   dropAccum = 0;
   lastTime = performance.now();
   next = randomPiece();
@@ -315,8 +366,17 @@ function init() {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.code === 'KeyP') { togglePause(); return; }
-  if (paused || gameOver) return;
+  if (e.code === 'KeyP') { e.preventDefault(); togglePause(); return; }
+  if (e.code === 'Escape') {
+    e.preventDefault();
+    if (menuOpen && isControlsVisible()) {
+      hideControlsSubview();
+    } else if (!gameOver) {
+      togglePause();
+    }
+    return;
+  }
+  if (paused || gameOver || menuOpen || inputLocked) return;
   switch (e.code) {
     case 'ArrowLeft':
       if (!collide(current.shape, current.x - 1, current.y)) current.x--;
@@ -341,5 +401,25 @@ document.addEventListener('keydown', e => {
 
 restartBtn.addEventListener('click', init);
 
+resumeBtn.addEventListener('click', () => {
+  if (menuOpen) togglePause();
+});
+
+pauseRestartBtn.addEventListener('click', () => {
+  menuOpen = false;
+  pauseMenu.classList.add('hidden');
+  hideControlsSubview();
+  init();
+});
+
+toggleControlsBtn.addEventListener('click', () => {
+  if (isControlsVisible()) {
+    hideControlsSubview();
+  } else {
+    showControlsSubview();
+  }
+});
+
 initTheme();
+initStartLevel();
 init();
